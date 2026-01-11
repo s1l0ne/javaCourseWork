@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+nl2sql:
+  fastapi:
+    base-url: "http://127.0.0.1:8000"
+    user-id: "ui-demo"
+  context:
+    enabled: true
+    allowed-schemas: [ "public" ]
+    distinct-columns:
+      - "public.student.status"
+      - "public.student.form"
+      - "public.student.basis"
+      - "public.student.sex"
+      - "public.student.scholarship_type"
+    distinct-limit: 20
+    cache-ttl-sec: 300
+
+spring:
+  thymeleaf:
+    cache: false
+
+  datasource:
+    url: "jdbc:postgresql://81.161.118.227:5432/appdb"
+    username: "admin"
+    password: "1112111"

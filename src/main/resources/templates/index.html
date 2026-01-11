@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>NL→SQL UI</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+
+  <!-- highlight.js -->
+  <link id="hlTheme" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
+  <script defer>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.hljs) hljs.highlightAll();
+    });
+  </script>
+
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="theme-dark">
+<div class="container py-4 shell">
+
+  <div class="topbar p-3 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-3">
+      <div class="brand-badge">
+        <span class="dot"></span>
+        <span class="mono fw-semibold">NL→SQL UI</span>
+      </div>
+      <div class="small-muted">
+        Вводишь описание отчёта, получаешь SQL и таблицу. Мир всё ещё держится на SQL, как ни странно.
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button id="themeToggle" type="button" class="btn btn-outline-light btn-sm">Светлая тема</button>
+      <a class="btn btn-outline-light btn-sm" href="/" title="Сбросить форму">Сброс</a>
+    </div>
+  </div>
+
+  <div th:if="${error}" class="alert alert-danger" role="alert">
+    <strong>Ошибка:</strong> <span th:text="${error}"></span>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-5">
+      <div class="panel mb-3">
+        <div class="panel-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div class="fw-semibold">Описание отчёта</div>
+            <div class="small-muted">Текст на обычном языке.</div>
+          </div>
+          <div class="kpi-row">
+            <span class="pill">Max rows: <span class="mono" th:text="${maxRows}"></span></span>
+            <span class="pill" th:if="${contextEnabled}">Контекст: <span class="mono">ON</span></span>
+            <span class="pill" th:if="${!contextEnabled}">Контекст: <span class="mono">OFF</span></span>
+          </div>
+        </div>
+        <div class="panel-body">
+          <form method="post" action="/run">
+            <div class="mb-3">
+              <textarea class="form-control" name="text" rows="5"
+                        placeholder="Например: Средний возраст студентов мужского пола"
+                        th:text="${text}"></textarea>
+            </div>
+
+            <div class="row g-2 align-items-center">
+              <div class="col-auto">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="doExecute" id="doExecute" th:checked="${doExecute}">
+                  <label class="form-check-label" for="doExecute">Выполнить (execute)</label>
+                </div>
+              </div>
+
+              <div class="col-auto">
+                <label class="form-label mb-0 small-muted">Max rows</label>
+                <input class="form-control" style="width: 120px" type="number" name="maxRows" min="1" max="2000" th:value="${maxRows}">
+              </div>
+
+              <div class="col-auto ms-auto">
+                <button class="btn btn-primary" type="submit">Запустить</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div th:if="${contextEnabled}" class="panel">
+        <div class="panel-header">
+          <div class="fw-semibold">Контекст-превью</div>
+          <div class="small-muted">Схема + top-distinct.</div>
+        </div>
+        <div class="panel-body">
+          <details open>
+            <summary class="d-flex align-items-center gap-2">
+              <span class="mono">Показать/скрыть</span>
+              <span class="chev mono">▶</span>
+              <span class="small-muted">контекст</span>
+            </summary>
+
+            <div class="mt-2 codebox">
+              <div class="codehdr">
+                <span class="small-muted">context.txt</span>
+                <button type="button" class="btn btn-outline-light btn-sm" data-copy="#ctxCode">Копировать</button>
+              </div>
+              <pre id="ctxCode"><code class="language-plaintext" th:text="${context}"></code></pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-12 col-lg-7">
+
+      <div th:if="${gen}" class="panel mb-3">
+        <div class="panel-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div class="fw-semibold">Генерация (generate)</div>
+            <div class="small-muted">SQL + пояснение. Если INVALID, запрос не запускаем.</div>
+          </div>
+          <span class="badge"
+                th:classappend="${gen.is_valid} ? ' badge-good' : ' badge-bad'"
+                th:text="${gen.is_valid} ? 'VALID' : 'INVALID'"></span>
+        </div>
+        <div class="panel-body">
+
+          <div th:if="${gen.rationale}" class="mb-3">
+            <div class="small-muted mb-1">Пояснение</div>
+            <div th:text="${gen.rationale}"></div>
+          </div>
+
+          <div class="codebox">
+            <div class="codehdr">
+              <span class="small-muted">generated.sql</span>
+              <button type="button" class="btn btn-outline-light btn-sm" data-copy="#genSql">Копировать</button>
+            </div>
+            <pre id="genSql"><code class="language-sql" th:text="${gen.sql}"></code></pre>
+          </div>
+
+          <div class="mt-3" th:if="${gen.errors != null and !gen.errors.isEmpty()}">
+            <div class="small-muted mb-1">Ошибки валидации</div>
+            <ul class="mb-0">
+              <li th:each="e : ${gen.errors}" th:text="${e}"></li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      <div th:if="${exec}" class="panel">
+        <div class="panel-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div class="fw-semibold">Выполнение (execute)</div>
+            <div class="small-muted">Результат запроса (ограничен max rows).</div>
+          </div>
+          <div class="kpi-row">
+            <span class="pill">строк: <span class="mono" th:text="${exec.rows_returned}"></span></span>
+            <span class="pill">время: <span class="mono" th:text="${exec.duration_ms}"></span> ms</span>
+          </div>
+        </div>
+        <div class="panel-body">
+
+          <details>
+            <summary class="d-flex align-items-center gap-2">
+              <span class="mono">SQL (фактически выполненный)</span>
+              <span class="chev mono">▶</span>
+              <span class="small-muted">после safety-limit</span>
+            </summary>
+
+            <div class="mt-2 codebox">
+              <div class="codehdr">
+                <span class="small-muted">executed.sql</span>
+                <button type="button" class="btn btn-outline-light btn-sm" data-copy="#execSql">Копировать</button>
+              </div>
+              <pre id="execSql"><code class="language-sql" th:text="${exec.sql}"></code></pre>
+            </div>
+          </details>
+
+          <div class="mt-3 table-responsive" th:if="${exec.columns != null and !exec.columns.isEmpty()}">
+            <table class="table table-sm table-striped align-middle">
+              <thead>
+              <tr>
+                <th th:each="c : ${exec.columns}" th:text="${c}"></th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr th:each="r : ${exec.rows}">
+                <td th:each="c : ${exec.columns}" th:text="${r.get(c)}"></td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div th:if="${exec.columns == null or exec.columns.isEmpty()}" class="small-muted mt-3">
+            Нет данных (или запрос не вернул колонок).
+          </div>
+
+          <div th:if="${exec.errors != null and !exec.errors.isEmpty()}" class="mt-3">
+            <div class="small-muted mb-1">Ошибки выполнения</div>
+            <ul class="mb-0">
+              <li th:each="e : ${exec.errors}" th:text="${e}"></li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      <div th:if="${gen == null}" class="panel">
+        <div class="panel-body small-muted">
+          Тут появятся результаты. Пока пусто, потому что запрос ещё не запускали.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script defer th:src="@{/js/app.js}"></script>
+</body>
+</html>
